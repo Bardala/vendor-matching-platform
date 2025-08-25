@@ -253,6 +253,7 @@ flowchart TD
     subgraph CoreModules [Core Modules]
         Users[UsersModule]
         Clients[ClientsModule]
+        Services[ServicesModule]
     end
 
     subgraph FeatureModules [Feature Modules]
@@ -278,6 +279,8 @@ flowchart TD
 
     %% Feature dependencies
     Projects --> Clients
+    Projects --> Services
+    Vendors --> Services
     Matches --> Projects
     Matches --> Vendors
     Analytics --> Projects
@@ -317,6 +320,12 @@ flowchart TD
   - Represents organizations/companies that own projects.
   - Each client can have multiple users and multiple projects.
   - Business-level entity, separate from authentication.
+
+- **ServicesModule**
+  - Manages the standardized list of services offered in the system
+  - Provides CRUD operations for service entities
+  - Used by both `ProjectsModule` (for required services) and `VendorsModule` (for offered services)
+  - Ensures data integrity and consistency across service references
 
 ### 🔹 Feature Modules
 
