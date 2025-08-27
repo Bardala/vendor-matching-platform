@@ -12,7 +12,7 @@ export class MigrationRunner {
       user: dbUrl.username,
       password: dbUrl.password,
       database: dbUrl.pathname.replace('/', ''),
-      multipleStatements: false,
+      multipleStatements: true,
     });
 
     const migrationDir = path.join(process.cwd(), 'database/migrations');

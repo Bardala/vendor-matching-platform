@@ -3,6 +3,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Vendor } from './entities/vendor.entity';
 import { ServicesModule } from 'src/services/services.module';
 import { MatchesModule } from 'src/matches/matches.module';
+import { VendorsService } from './vendors.service';
 
 @Module({
   imports: [
@@ -10,5 +11,7 @@ import { MatchesModule } from 'src/matches/matches.module';
     forwardRef(() => ServicesModule),
     forwardRef(() => MatchesModule),
   ],
+  exports: [TypeOrmModule],
+  providers: [VendorsService],
 })
 export class VendorsModule {}

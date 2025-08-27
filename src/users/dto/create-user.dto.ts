@@ -13,9 +13,11 @@ export class CreateUserDto {
 
   @IsString()
   @MinLength(6)
-  password: string;
+  passwordHash: string;
 
   @IsEnum(UserRole)
   @IsOptional()
   role?: UserRole;
+
+  clientId: number;
 }

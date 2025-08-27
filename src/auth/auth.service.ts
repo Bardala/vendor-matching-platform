@@ -1,16 +1,22 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
-import { CreateUserDto } from 'src/users/dto/create-user.dto';
 import { LoginReqDto } from './dto/login-req.dto';
 import { SanitizedUser } from 'src/common/types/sanitized-user.type';
 import { JwtPayload } from 'src/common/types/jwt-payload.type';
+import { IAuthService } from './interfaces/i-auth-service.interface';
+import { ClientsService } from 'src/clients/clients.service';
+import { DataSource } from 'typeorm';
+import { SignupReqDto } from 'src/users/dto/signup-req.dto';
+import { UserRole } from 'src/users/entities/user.entity';
 
 @Injectable()
-export class AuthService {
+export class AuthService implements IAuthService {
   constructor(
-    private usersService: UsersService,
-    private jwtService: JwtService,
+    private readonly dataSource: DataSource,
+    private readonly usersService: UsersService,
+    private readonly clientsService: ClientsService,
+    private readonly jwtService: JwtService,
   ) {}
 
   async validateUser(req: LoginReqDto): Promise<SanitizedUser> {
@@ -32,17 +38,32 @@ export class AuthService {
       role: user.role,
     };
 
-    const accessToken = this.jwtService.sign(payload);
+    const token = this.jwtService.sign(payload);
 
     return {
-      accessToken,
-      user,
+      token,
     };
   }
 
-  async register(createUserDto: CreateUserDto) {
-    const user = await this.usersService.create(createUserDto);
-    const { passwordHash: _, ...result } = user;
-    return result;
+  async register(req: SignupReqDto): Promise<{ token: string }> {
+    return this.dataSource.transaction(async manager => {
+      const client = await this.clientsService.create(
+        { companyName: req.companyName, contactEmail: req.email },
+        manager,
+      );
+
+      const user = await this.usersService.create(
+        {
+          email: req.email,
+          passwordHash: req.password,
+          role: UserRole.CLIENT,
+          clientId: client.id,
+        },
+        manager,
+      );
+
+      const payload = { sub: user.id, role: user.role };
+      return { token: this.jwtService.sign(payload) };
+    });
   }
 }

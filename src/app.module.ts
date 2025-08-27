@@ -13,7 +13,6 @@ import { VendorsModule } from './vendors/vendors.module';
 import { MatchesModule } from './matches/matches.module';
 import { ResearchModule } from './research/research.module';
 import { AnalyticsModule } from './analytics/analytics.module';
-import { TasksModule } from './tasks/tasks.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { ClientsModule } from './clients/clients.module';
 
@@ -50,8 +49,8 @@ import { ClientsModule } from './clients/clients.module';
     MatchesModule,
     ResearchModule,
     AnalyticsModule,
-    TasksModule,
     NotificationsModule,
+    ResearchModule,
     ClientsModule,
   ],
   controllers: [AppController],

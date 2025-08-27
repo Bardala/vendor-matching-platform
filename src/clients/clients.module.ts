@@ -12,7 +12,7 @@ import { ClientsController } from './clients.controller';
     forwardRef(() => UsersModule),
     forwardRef(() => ProjectsModule),
   ],
-  exports: [TypeOrmModule],
+  exports: [TypeOrmModule, ClientsService],
   providers: [ClientsService],
   controllers: [ClientsController],
 })

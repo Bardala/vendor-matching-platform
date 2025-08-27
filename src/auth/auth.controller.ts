@@ -1,18 +1,23 @@
 import { Controller, Post, Body, Request } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { CreateUserDto } from '../users/dto/create-user.dto';
 import { LoginReqDto } from './dto/login-req.dto';
-import { ApiBody, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { SignupReqDto } from 'src/users/dto/signup-req.dto';
 
-@ApiTags('auth')
-@Controller('auth')
+@ApiTags('Auth APIs')
+@Controller('/api/v1/auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @ApiOperation({
+    summary: 'Client account registration',
+    description:
+      'Registers a client account. Admin accounts are provisioned internally by the system and are not created through this endpoint.',
+  })
   @ApiResponse({ status: 201, description: 'User successfully registered.' })
-  async register(@Body() createUserDto: CreateUserDto) {
-    return this.authService.register(createUserDto);
+  async register(@Body() req: SignupReqDto) {
+    return this.authService.register(req);
   }
 
   @Post('login')

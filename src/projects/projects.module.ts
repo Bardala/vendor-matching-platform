@@ -14,6 +14,7 @@ import { Project } from './entities/project.entity';
     TypeOrmModule.forFeature([Project]),
     forwardRef(() => ClientsModule),
     forwardRef(() => MatchesModule),
+    forwardRef(() => ClientsModule),
     ServicesModule,
   ],
   exports: [TypeOrmModule],
