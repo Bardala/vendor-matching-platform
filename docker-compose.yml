@@ -12,10 +12,11 @@ services:
       - MYSQL_URL=mysql://app_user:app_password@mysql-db:3306/vendor_db
       - MONGODB_URI=mongodb://admin:adminpassword@mongodb:27017/research?authSource=admin
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
-    volumes:
-      # - .:/usr/src/app
-      # - /usr/src/app/node_modules
-      # - ./.env:/usr/src/app/.env
+  # Volumes are disabled for Railway deployment. Use Railway's environment variable dashboard for secrets/config.
+  # volumes:
+  #   - .:/usr/src/app
+  #   - /usr/src/app/node_modules
+  #   - ./.env:/usr/src/app/.env
     depends_on:
       mysql-db:
         condition: service_healthy
@@ -23,7 +24,8 @@ services:
         condition: service_healthy
     networks:
       - app-network
-    command: sh -c "sleep 10 && npm run start:dev"  # Wait for DBs to be ready
+  # Railway manages service startup order. Use default CMD from Dockerfile for production.
+  # command: sh -c "sleep 10 && npm run start:dev"
 
   mysql-db:
     image: mysql:8.0
