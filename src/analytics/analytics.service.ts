@@ -141,12 +141,20 @@ export class AnalyticsService implements IAnalyticsService {
 
     // Combine results for all countries
     const results: CountryAnalytics[] = countries.map((country: string) => ({
-      country,
+      country: this.normalizeCountry(country),
       topVendors: topVendorsByCountry[country] || [],
-      documentCount: documentCountByCountry[country] || 0,
+      documentCount:
+        documentCountByCountry[this.normalizeCountry(country)] || 0,
     }));
 
     return results;
+  }
+
+  private normalizeCountry(raw: string): string {
+    const parsed = JSON.parse(raw) as string | string[];
+    if (Array.isArray(parsed)) return parsed[0];
+
+    return parsed;
   }
 }
 

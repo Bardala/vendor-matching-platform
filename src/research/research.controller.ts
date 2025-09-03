@@ -30,7 +30,6 @@ export class ResearchController {
   constructor(private readonly researchService: ResearchService) {}
 
   @Get()
-  // @Roles(UserRole.ADMIN)
   @ApiOperation({
     summary: 'Get all researches',
   })

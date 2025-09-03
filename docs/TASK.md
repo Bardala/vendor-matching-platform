@@ -71,7 +71,7 @@ Expanders360 helps founders run expansion projects in new countries. Each projec
 
 ### Project-Vendor Matching
 
-- Build an endpoint `/projects/:id/matches/rebuild` that generates vendor matches using MySQL queries.✅❔
+- Build an endpoint `/projects/:id/matches/rebuild` that generates vendor matches using MySQL queries.✅
 - Matching rules:
   - Vendors must cover same country
   - At least one service overlap
@@ -87,16 +87,16 @@ Expanders360 helps founders run expansion projects in new countries. Each projec
 
 ### Notifications & Scheduling
 
-- When a new match is generated → send email notification (SMTP or mock service).
+- When a new match is generated → send email notification (SMTP or mock service).✅
 - Implement a scheduled job (e.g., using NestJS Schedule or BullMQ) that:
   - Refreshes matches daily for “active” projects ✅
   - Flags vendors with expired SLAs ✅
 
 ### Deployment
 
-- Dockerized app with MySQL + MongoDB containers
-- Deploy to any free cloud (Render, Railway, AWS free tier, etc.)
-- Provide a working `.env.example` and setup instructions
+- Dockerized app with MySQL + MongoDB containers ✅
+- Deploy to any free cloud (Render, Railway, AWS free tier, etc.) ✅
+- Provide a working `.env.example` and setup instructions ✅
 
 ## 🧰 Tech Stack
 

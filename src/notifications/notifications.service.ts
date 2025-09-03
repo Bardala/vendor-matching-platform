@@ -4,7 +4,6 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Match } from '../matches/entities/match.entity';
 import { Project } from '../projects/entities/project.entity';
-import { Client } from '../clients/entities/client.entity';
 import { Vendor } from 'src/vendors/entities/vendor.entity';
 
 @Injectable()
@@ -14,27 +13,17 @@ export class NotificationsService implements INotificationsService {
   constructor(
     @InjectRepository(Match)
     private readonly matchRepo: Repository<Match>,
-    @InjectRepository(Project)
-    private readonly projectRepo: Repository<Project>,
-    @InjectRepository(Client)
-    private readonly clientRepo: Repository<Client>,
   ) {}
 
-  // eslint-disable-next-line @typescript-eslint/require-await
-  async sendEmail(to: string, subject: string, body: string): Promise<void> {
-    // Mock email implementation - replace with real SMTP service in production
+  sendEmail(to: string, subject: string, body: string): void {
+    // Mock email Service
     this.logger.log(`📧 Email notification sent to: ${to}`);
     this.logger.debug(`Subject: ${subject}`);
-    this.logger.debug(`Body: ${body.substring(0, 100)}...`);
-
-    // In production, integrate with:
-    // - Nodemailer (SMTP)
-    // - Or any email service provider
+    this.logger.debug(`Body: ${body}`);
   }
 
   async notifyMatch(matchId: number): Promise<void> {
     try {
-      // Get match with project and client relations
       const match = await this.matchRepo.findOne({
         where: { id: matchId },
         relations: ['vendor', 'project', 'project.client'],
@@ -48,13 +37,12 @@ export class NotificationsService implements INotificationsService {
       const { project, vendor } = match;
 
       // Send email to client's contact email
-      await this.sendEmail(
+      this.sendEmail(
         project.client.contactEmail,
         `New Vendor Match for Your Project #${project.id}`,
         this.buildMatchNotificationEmail(project, vendor, match),
       );
 
-      // Mark as notified
       await this.matchRepo.update(matchId, { isNotified: true });
 
       this.logger.log(
@@ -83,7 +71,7 @@ export class NotificationsService implements INotificationsService {
 
       👥 Vendor Match:
       - Vendor: ${vendor.name}
-      - Match Score: ${match.score}/10
+      - Match Score: ${match.score}
       - Vendor Rating: ${vendor.rating}/5
       - Response SLA: ${vendor.responseSlaHours} hours
 

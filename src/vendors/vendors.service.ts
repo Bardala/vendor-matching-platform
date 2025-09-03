@@ -95,6 +95,6 @@ export class VendorsService implements IVendorsService {
       [thresholdHours],
     );
 
-    return result.affectedRows; // ✅ directly
+    return result.affectedRows;
   }
 }

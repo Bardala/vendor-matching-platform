@@ -6,7 +6,7 @@ import { MatchesService } from './matches.service';
 export class MatchesScheduler {
   constructor(private readonly matchesService: MatchesService) {}
 
-  @Cron('0 0 * * *')
+  @Cron('* * * * *') // every minute for testing; change to '0 0 * * *' for daily at midnight
   async handleDailyMatchRefresh() {
     console.log('🔄 Running daily match refresh...');
     await this.matchesService.refreshDailyMatches();
