@@ -1,8 +1,8 @@
-import { TopVendor } from 'src/common/types/top-vendor.type';
+import { CountryAnalytics } from 'src/common/types/country-analytics.type';
 import { VendorTrend } from 'src/common/types/vendor-trend.type';
 
 export interface IAnalyticsService {
-  getTopVendors(country: string, limit: number): Promise<TopVendor[]>;
+  getTopVendors(): Promise<CountryAnalytics[]>;
   getResearchCountsByCountry(): Promise<
     { country: string; documentCount: number }[]
   >;

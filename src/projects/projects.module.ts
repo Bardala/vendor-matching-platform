@@ -6,6 +6,7 @@ import { ServicesModule } from 'src/services/services.module';
 import { MatchesModule } from 'src/matches/matches.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Project } from './entities/project.entity';
+import { ResearchModule } from 'src/research/research.module';
 
 @Module({
   providers: [ProjectsService],
@@ -15,6 +16,7 @@ import { Project } from './entities/project.entity';
     forwardRef(() => ClientsModule),
     forwardRef(() => MatchesModule),
     forwardRef(() => ClientsModule),
+    ResearchModule,
     ServicesModule,
   ],
   exports: [TypeOrmModule],

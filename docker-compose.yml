@@ -1,5 +1,30 @@
 services:
-  # MySQL Database for relational data (Projects, Vendors, Matches)
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: vendor-matching-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=docker
+      - MYSQL_URL=mysql://app_user:app_password@mysql-db:3306/vendor_db
+      - MONGODB_URI=mongodb://admin:adminpassword@mongodb:27017/research?authSource=admin
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+    volumes:
+      - .:/usr/src/app
+      - /usr/src/app/node_modules
+      # - ./.env:/usr/src/app/.env
+    depends_on:
+      mysql-db:
+        condition: service_healthy
+      mongodb:
+        condition: service_healthy
+    networks:
+      - app-network
+    command: sh -c "sleep 10 && npm run start:dev"  # Wait for DBs to be ready
+
   mysql-db:
     image: mysql:8.0
     container_name: vendor-matching-mysql
@@ -12,15 +37,19 @@ services:
       MYSQL_CHARSET: utf8mb4
       MYSQL_COLLATION: utf8mb4_unicode_ci
       TZ: UTC
-      
     ports:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     networks:
       - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
-  # MongoDB for unstructured research documents
   mongodb:
     image: mongo:6.0
     container_name: vendor-matching-mongodb
@@ -34,8 +63,13 @@ services:
       - mongo_data:/data/db
     networks:
       - app-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/vendor_matching -u admin -p adminpassword --authenticationDatabase admin --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
-# Named volumes to persist data even if containers are removed
 volumes:
   mysql_data:
   mongo_data:

@@ -49,29 +49,29 @@ Expanders360 helps founders run expansion projects in new countries. Each projec
 
 ### Auth & Roles
 
-- Implement JWT authentication in NestJS
-- Roles: client, admin
-- Clients can manage their own projects
-- Admins can manage vendors and system configs
+- Implement JWT authentication in NestJS ✅
+- Roles: client, admin ✅
+- Clients can manage their own projects ✅
+- Admins can manage vendors and system configs ✅
 
 ### Projects & Vendors (MySQL) - Relational schema in MySQL:
 
-- `clients` (id, company_name, contact_email)
-- `projects` (id, client_id, country, services_needed[], budget, status)
-- `vendors` (id, name, countries_supported[], services_offered[], rating, response_sla_hours)
-- `matches` (id, project_id, vendor_id, score, created_at)
+- `clients` (id, company_name, contact_email)✅
+- `projects` (id, client_id, country, services_needed[], budget, status)✅
+- `vendors` (id, name, countries_supported[], services_offered[], rating, response_sla_hours)✅
+- `matches` (id, project_id, vendor_id, score, created_at)✅
 
 ### Research Documents (MongoDB)
 
-- Store market reports and project research files in MongoDB (schema-free).
-- Each document is linked to a project (projectId).
+- Store market reports and project research files in MongoDB (schema-free).✅
+- Each document is linked to a project (projectId).✅
 - Provide an endpoint to:
-  - Upload a document (title, content, tags).
-  - Query/search documents by tag, text, or project.
+  - Upload a document (title, content, tags). ✅
+  - Query/search documents by tag, text, or project. ✅
 
 ### Project-Vendor Matching
 
-- Build an endpoint `/projects/:id/matches/rebuild` that generates vendor matches using MySQL queries.
+- Build an endpoint `/projects/:id/matches/rebuild` that generates vendor matches using MySQL queries.✅❔
 - Matching rules:
   - Vendors must cover same country
   - At least one service overlap
@@ -80,17 +80,17 @@ Expanders360 helps founders run expansion projects in new countries. Each projec
 
 ### Analytics & Cross-DB Query
 
-- Create an endpoint `/analytics/top-vendors` that returns:
-  - Top 3 vendors per country (avg match score last 30 days, from MySQL)
-  - Count of research documents linked to expansion projects in that country (from MongoDB)
-- This requires joining relational and non-relational sources in your service layer.
+- Create an endpoint `/analytics/top-vendors` that returns:✅
+  - Top 3 vendors per country (avg match score last 30 days, from MySQL)✅
+  - Count of research documents linked to expansion projects in that country (from MongoDB)✅
+- This requires joining relational and non-relational sources in your service layer.✅
 
 ### Notifications & Scheduling
 
 - When a new match is generated → send email notification (SMTP or mock service).
 - Implement a scheduled job (e.g., using NestJS Schedule or BullMQ) that:
-  - Refreshes matches daily for “active” projects
-  - Flags vendors with expired SLAs
+  - Refreshes matches daily for “active” projects ✅
+  - Flags vendors with expired SLAs ✅
 
 ### Deployment
 

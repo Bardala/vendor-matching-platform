@@ -18,7 +18,10 @@ import { ClientsModule } from './clients/clients.module';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: `.env.${process.env.NODE_ENV || 'local'}`,
+    }),
 
     TypeOrmModule.forRootAsync({
       useFactory: () => ({
@@ -26,7 +29,7 @@ import { ClientsModule } from './clients/clients.module';
         url: process.env.MYSQL_URL,
         autoLoadEntities: true,
         synchronize: false,
-        logging: true,
+        logging: false,
         charset: 'utf8mb4',
         timezone: 'Z',
       }),

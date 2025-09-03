@@ -18,3 +18,8 @@ export class ResearchDocument extends Document {
 
 export const ResearchDocumentSchema =
   SchemaFactory.createForClass(ResearchDocument);
+
+ResearchDocumentSchema.index(
+  { title: 'text', content: 'text' },
+  { weights: { title: 5, content: 1 } },
+);

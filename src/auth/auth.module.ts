@@ -9,6 +9,9 @@ import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { ClientsModule } from 'src/clients/clients.module';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LocalAuthGuard } from './guards/local-auth.guard';
+import { RolesGuard } from './guards/roles.guard';
 
 @Module({
   imports: [
@@ -30,7 +33,14 @@ import { ClientsModule } from 'src/clients/clients.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, LocalStrategy],
-  exports: [AuthService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    LocalStrategy,
+    JwtAuthGuard,
+    RolesGuard,
+    LocalAuthGuard,
+  ],
+  exports: [AuthService, JwtAuthGuard, RolesGuard, LocalAuthGuard],
 })
 export class AuthModule {}

@@ -3,6 +3,7 @@ import { IResearchService } from './interfaces/i-research-service.interface';
 import { ResearchDocument } from './schema/research-document.schema';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model } from 'mongoose';
+import { UploadResearchDto } from './dto/research-document.dto';
 
 @Injectable()
 export class ResearchService implements IResearchService {
@@ -11,13 +12,12 @@ export class ResearchService implements IResearchService {
     private researchModel: Model<ResearchDocument>,
   ) {}
 
-  async upload(
-    projectId: number,
-    title: string,
-    content: string,
-    tags: string[],
-  ): Promise<ResearchDocument> {
-    const doc = new this.researchModel({ projectId, title, content, tags });
+  async findAll(): Promise<ResearchDocument[]> {
+    return await this.researchModel.find();
+  }
+
+  async upload(uploadDto: UploadResearchDto): Promise<ResearchDocument> {
+    const doc = new this.researchModel(uploadDto);
     return doc.save();
   }
 
@@ -25,6 +25,7 @@ export class ResearchService implements IResearchService {
     return this.researchModel.find({ projectId }).exec();
   }
 
+  // We can add pagination later.
   async search(query: {
     text?: string;
     tags?: string[];
@@ -33,10 +34,9 @@ export class ResearchService implements IResearchService {
     const filter: FilterQuery<ResearchDocument> = {};
     if (query.projectId) filter.projectId = query.projectId;
     if (query.tags) filter.tags = { $in: query.tags };
-    /* $text is used with a text index in MongoDB
-     to perform text search within fields that have an index
-     (usually title or content). */
     if (query.text) filter.$text = { $search: query.text };
+    if (Object.keys(filter).length === 0)
+      return this.researchModel.find().sort({ createdAt: -1 }).limit(10).exec();
 
     return this.researchModel.find(filter).exec();
   }

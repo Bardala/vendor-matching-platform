@@ -4,8 +4,8 @@ import { LoginReqDto } from './dto/login-req.dto';
 import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { SignupReqDto } from 'src/users/dto/signup-req.dto';
 
-@ApiTags('Auth APIs')
-@Controller('/api/v1/auth')
+@ApiTags('auth')
+@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
@@ -17,13 +17,13 @@ export class AuthController {
   })
   @ApiResponse({ status: 201, description: 'User successfully registered.' })
   async register(@Body() req: SignupReqDto) {
-    return this.authService.register(req);
+    return await this.authService.register(req);
   }
 
   @Post('login')
   @ApiResponse({ status: 200, description: 'User successfully logged in.' })
   @ApiBody({ type: LoginReqDto })
-  login(@Body() req: LoginReqDto) {
-    return this.authService.login(req);
+  async login(@Body() req: LoginReqDto) {
+    return await this.authService.login(req);
   }
 }
