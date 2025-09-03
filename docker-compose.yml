@@ -13,8 +13,8 @@ services:
       - MONGODB_URI=mongodb://admin:adminpassword@mongodb:27017/research?authSource=admin
       - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
     volumes:
-      - .:/usr/src/app
-      - /usr/src/app/node_modules
+      # - .:/usr/src/app
+      # - /usr/src/app/node_modules
       # - ./.env:/usr/src/app/.env
     depends_on:
       mysql-db:
