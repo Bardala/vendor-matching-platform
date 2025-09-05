@@ -17,13 +17,14 @@ flowchart TD
         Auth[Auth Module<br>JWT]
         API[API Gateway/REST Controllers]
         Services[Service Layer]
-        Scheduler[Scheduler Module<br>NestJS Schedule/BullMQ]
+        Scheduler[Scheduler Layer<br>NestJS Schedule]
         Notification[Notification Service]
 
         API --> Auth
         API --> Services
         Scheduler --> Services
         Services --> Notification
+        Notification --> Scheduler
     end
 
     subgraph DataStorage [Data Storage]
@@ -195,41 +196,130 @@ This database schema is designed to manage **clients, projects, vendors, and the
 
 ## 3. API Endpoints & Flow Diagram
 
-This sequence diagram illustrates the key API flows, particularly the cross-db analytics and matching processes.
+### Key API Endpoints
+
+#### Authentication Endpoints
+
+```typescript
+POST /auth/register     # Client account registration
+POST /auth/login        # User authentication
+```
+
+#### Analytics Endpoints
+
+```typescript
+GET /analytics/top-vendors  # Get top vendors by country with document counts
+```
+
+#### Project Matching Endpoints
+
+```typescript
+POST /projects/:projectId/matches/rebuild  # Rebuild vendor matches for a project
+GET /projects/:projectId/matches           # Get matches for a project
+```
+
+#### Research Document Endpoints
+
+```typescript
+POST /research-docs          # Upload research documents
+```
+
+### Comprehensive Flow Diagram
 
 ```mermaid
 sequenceDiagram
   participant C as Client
   participant A as API Controller
   participant S as Service Layer
+  participant Sch as Scheduler
   participant My as MySQL
   participant Mo as MongoDB
-  participant N as Notification
+  participant N as Notification Service
 
-  Note over C, N: 1. Project-Vendor Matching Flow
-  C->>A: POST /projects/{id}/matches/rebuild
-  A->>S: triggerMatching(projectId)
-  S->>My: Query project details (country, services)
-  S->>My: Find vendors by country & service overlap
-  S->>My: Calculate & upsert match scores
-  S->>N: notifyNewMatches(matches)
-  N-->>SMTP: Send Email (Mocked)
-  S-->>A: Success
-  A-->>C: 200 OK with match results
+  Note over C, N: 1. Authentication Flow
+  C->>A: POST /auth/register or /auth/login
+  A->>S: register() or login()
+  S->>My: Validate credentials & create JWT
+  S-->>A: JWT token
+  A-->>C: 200 OK with authentication token
 
-  Note over C, N: 2. Cross-DB Analytics Flow
+  Note over C, N: 2. Cross-DB Analytics Flow - Top Vendors
   C->>A: GET /analytics/top-vendors
-  A->>S: getTopVendorsByCountry()
+  A->>S: getTopVendors()
 
-  S->>My: Query top 3 vendors per country<br>(avg score last 30 days)
-  loop For each country result
-      S->>Mo: Count documents<br>linked to projects in country
+  S->>My: Query distinct countries from projects
+  S->>My: Get top 3 vendors per country using window function
+  S->>My: Calculate average scores (last 30 days)
+
+  S->>My: Fetch all projects with country data
+  S->>Mo: Aggregate research document counts by projectId
+
+  S->>S: Combine MySQL vendor data with MongoDB document counts
+  S->>S: Normalize country data and aggregate counts
+  S-->>A: Combined analytics response
+  A-->>C: 200 OK with country analytics data
+
+  Note over C, N: 3. Project-Vendor Matching Flow
+  C->>A: POST /projects/{id}/matches/rebuild
+  A->>S: rebuildMatchesForProject(projectId)
+
+  S->>My: Find project with services
+  alt Project Not Found
+    S-->>A: 404 Error
+    A-->>C: 404 Not Found
   end
-  S->>S: Combine data from MySQL & MongoDB
-  S-->>A: Combined JSON response
-  A-->>C: 200 OK with analytics data
 
-  Note over C, N: 3. Research Document Flow
+  S->>My: Delete existing matches for project
+  S->>My: Execute raw SQL matching query
+  Note right of My: - Service overlap scoring<br>- Country compatibility<br>- SLA-based scoring<br>- Vendor rating integration
+
+  S->>My: Retrieve newly created matches
+  S->>S: Filter high-quality matches (score ≥ 7)
+  loop For each high-quality match
+    S->>N: notifyMatch(matchId)
+    N->>My: Fetch match details with relations
+    N->>N: Build email notification
+    N->>N: Send email to client (mock)
+    N->>My: Update match.isNotified = true
+  end
+
+  S-->>A: Success with match results
+  A-->>C: 201 Created with match data
+
+  Note over Sch, N: 4. Scheduled Daily Match Refresh
+  Sch->>S: handleDailyMatchRefresh() [Cron: * * * * *]
+  S->>My: Find all active projects
+  loop For each active project
+    S->>My: Rebuild matches for project
+    S->>S: Filter high-quality matches
+    loop For each high-quality match
+      S->>N: notifyMatch(matchId)
+      N->>My: Fetch & notify match
+    end
+  end
+
+  Note over Sch, N: 5. Scheduled SLA Monitoring
+  Sch->>S: handleExpiredSlaVendors() [Cron: 0 1 * * *]
+  S->>My: Flag vendors with SLA > 72 hours
+  S->>My: UPDATE vendors SET is_active = false
+  S-->>Sch: Count of flagged vendors
+  Sch->>Sch: Log warning for flagged vendors
+
+  Note over C, N: 6. Vendor Management Flow
+  C->>A: GET/POST/PUT/DELETE /vendors
+  A->>S: CRUD operations
+  S->>My: Perform vendor database operations
+  S-->>A: Vendor data
+  A-->>C: Response with vendor information
+
+  Note over C, N: 7. Get Project Matches Flow
+  C->>A: GET /projects/{id}/matches
+  A->>S: findAllByProject(projectId)
+  S->>My: Query matches with vendor relations
+  S-->>A: Match list
+  A-->>C: 200 OK with matches
+
+  Note over C, N: 8. Research Document Flow
   C->>A: POST /research-docs
   A->>S: uploadDocument(metadata, fileBuffer)
   S->>Mo: Store document with projectId, tags, etc.
@@ -237,18 +327,224 @@ sequenceDiagram
   A-->>C: 201 Created
 ```
 
+### Top Vendors Analytics Endpoint Details
+
+The `GET /analytics/top-vendors` endpoint implements a sophisticated cross-database analytics solution:
+
+#### Data Flow Architecture
+
+1. **Country Extraction**: Query distinct countries from MySQL projects table
+2. **Vendor Ranking**: Use window functions to rank top 3 vendors per country by average match score
+3. **Document Aggregation**: Count research documents in MongoDB grouped by projectId
+4. **Data Combination**: Merge vendor performance data with research document counts
+5. **Country Normalization**: Handle both string and array country formats
+
+#### SQL Window Function Implementation
+
+```sql
+WITH ranked_vendors AS (
+  SELECT
+    JSON_UNQUOTE(p.country) as country,
+    v.id as vendor_id,
+    v.name as vendor_name,
+    AVG(m.score) as avg_score,
+    ROW_NUMBER() OVER (PARTITION BY JSON_UNQUOTE(p.country) ORDER BY AVG(m.score) DESC) as row_num
+  FROM matches m
+  JOIN vendors v ON v.id = m.vendor_id
+  JOIN projects p ON p.id = m.project_id
+  WHERE m.created_at >= NOW() - INTERVAL 30 DAY
+  GROUP BY JSON_UNQUOTE(p.country), v.id, v.name
+)
+SELECT
+  country,
+  vendor_id,
+  vendor_name,
+  avg_score
+FROM ranked_vendors
+WHERE row_num <= 3
+```
+
+#### MongoDB Aggregation Pipeline
+
+```javascript
+[
+  {
+    $group: {
+      _id: '$projectId',
+      count: { $sum: 1 },
+    },
+  },
+];
+```
+
+#### Response Structure
+
+```typescript
+// Array of country analytics with top vendors and document counts
+[
+  {
+    country: 'United States',
+    topVendors: [
+      {
+        id: 123,
+        name: 'Vendor ABC',
+        avg_score: 4.8,
+      },
+      {
+        id: 456,
+        name: 'Vendor XYZ',
+        avg_score: 4.6,
+      },
+    ],
+    documentCount: 15,
+  },
+];
+```
+
+### Project Matching Endpoint Implementation Details
+
+The `POST /projects/:projectId/matches/rebuild` endpoint features:
+
+#### Matching Score Calculation (SQL Query)
+
+```sql
+INSERT INTO matches (project_id, vendor_id, score, created_at, updated_at)
+SELECT
+    p.id as project_id,
+    v.id as vendor_id,
+    (
+      COUNT(ps.service_id) * 2 +          -- Service overlap (2 points per matching service)
+      v.rating +                          -- Vendor rating (1-5 points)
+      CASE                                 -- SLA-based scoring
+        WHEN v.response_sla_hours <= 6 THEN 7
+        WHEN v.response_sla_hours <= 12 THEN 6
+        WHEN v.response_sla_hours <= 24 THEN 5
+        WHEN v.response_sla_hours <= 48 THEN 3
+        ELSE 1
+      END
+    ) as score,                           -- Total score calculation
+    NOW() as created_at,
+    NOW() as updated_at
+FROM projects p
+CROSS JOIN vendors v
+INNER JOIN project_services ps ON p.id = ps.project_id
+INNER JOIN vendor_services vs ON v.id = vs.vendor_id AND ps.service_id = vs.service_id
+WHERE JSON_CONTAINS(v.countries_supported, p.country)  -- Country compatibility
+  AND p.id = ?
+GROUP BY p.id, v.id, v.rating, v.response_sla_hours
+HAVING COUNT(ps.service_id) > 0            -- Must have at least one service match
+ON DUPLICATE KEY UPDATE
+    score = VALUES(score),
+    updated_at = NOW()
+```
+
+### Scheduling System Implementation
+
+#### 1. Daily Match Refresh Scheduler
+
+```typescript
+@Cron('* * * * *') // Every minute for testing; change to '0 0 * * *' for daily at midnight
+async handleDailyMatchRefresh() {
+  console.log('🔄 Running daily match refresh...');
+  await this.matchesService.refreshDailyMatches();
+}
+```
+
+**Functionality:**
+
+- Automatically refreshes matches for all active projects
+- Runs according to configured cron schedule
+- Maintains up-to-date vendor recommendations
+
+#### 2. SLA Monitoring Scheduler
+
+```typescript
+@Cron('0 1 * * *') // Daily at 1:00 AM
+async handleExpiredSlaVendors() {
+  this.logger.log('⏳ Checking for vendors with expired SLA...');
+  const flaggedCount = await this.vendorsService.flagExpiredSlaVendors();
+  if (flaggedCount > 0) {
+    this.logger.warn(`⚠️ ${flaggedCount} vendors flagged as inactive due to expired SLA`);
+  }
+}
+```
+
+**Functionality:**
+
+- Flags vendors with response SLA exceeding 72 hours
+- Automatically sets `is_active = false` for non-compliant vendors
+- Provides logging and monitoring of compliance issues
+
+### Vendor SLA Management Service
+
+```typescript
+async flagExpiredSlaVendors(thresholdHours = 72): Promise<number> {
+  const result: ResultSetHeader = await this.vendorRepo.query(`
+    UPDATE vendors
+    SET is_active = false, updated_at = NOW()
+    WHERE response_sla_hours > ?
+      AND is_active = true
+  `, [thresholdHours]);
+
+  return result.affectedRows;
+}
+```
+
+### Notification Service Integration
+
+The notification system is tightly integrated with both manual and scheduled operations:
+
+1. **Manual Match Rebuild**: Notifies clients of high-quality matches (score ≥ 7)
+2. **Scheduled Refresh**: Automatically notifies about new high-quality matches from daily refresh
+3. **Email Templates**: Professional notification emails with project and vendor details
+4. **Idempotent Design**: Prevents duplicate notifications with `isNotified` flag
+
+### Key System Features
+
+1. **Automated Scheduling**:
+   - Daily match refresh for active projects
+   - SLA compliance monitoring
+   - Configurable cron schedules
+
+2. **Proactive Notifications**:
+   - Real-time email notifications for high-quality matches
+   - Automated client communication
+   - Failure-resistant design with proper error handling
+
+3. **Vendor Management**:
+   - Comprehensive CRUD operations
+   - Service attachment capabilities
+   - Automated SLA compliance enforcement
+
+4. **Cross-Database Analytics**:
+   - Combined MySQL and MongoDB data
+   - Performance-optimized queries
+   - Real-time analytics capabilities
+
+This comprehensive design showcases a complete vendor management ecosystem with advanced scheduling, automated notifications, and robust analytics capabilities, providing both real-time operations and scheduled maintenance tasks.
+
+### Key System Features
+
+1. **Cross-Database Analytics**: Combines MySQL transactional data with MongoDB document storage
+2. **Performance Optimization**: Window functions and efficient aggregation pipelines
+3. **Real-time Matching**: Sophisticated scoring algorithm with multiple factors
+4. **Automated Notifications**: Intelligent filtering for high-quality matches only
+5. **Data Consistency**: Robust error handling and transaction management
+6. **Scalable Architecture**: Separated concerns between analytics and operational data
+
+This comprehensive design showcases both the advanced analytics capabilities through the top vendors endpoint and the sophisticated real-time matching functionality through the rebuild matches endpoint, demonstrating a complete vendor management ecosystem.
+
 ---
 
 ## 4. Module/Service Dependency Diagram (NestJS Structure)
 
-This diagram outlines the recommended NestJS module structure and their dependencies.
+This diagram outlines the implemented NestJS module structure and their dependencies:
 
 ```mermaid
 flowchart TD
     App[App Module]
     Auth[AuthModule]
     Config[ConfigModule]
-    Schedule[ScheduleModule]
 
     subgraph CoreModules [Core Modules]
         Users[UsersModule]
@@ -267,7 +563,6 @@ flowchart TD
 
     App --> Config
     App --> Auth
-    App --> Schedule
     App --> CoreModules
     App --> FeatureModules
 
@@ -283,83 +578,104 @@ flowchart TD
     Vendors --> Services
     Matches --> Projects
     Matches --> Vendors
+    Matches --> Notifications
     Analytics --> Projects
     Analytics --> Vendors
     Analytics --> Research
     Notifications --> Matches
-
 ```
 
-## 📦 Module Explanations
+### 📦 Module Implementation Details
 
-### 🔹 Core Modules
+#### 🔹 Core Modules
 
 - **AppModule**
-  - Root module of the NestJS application.
-  - Imports and wires together all feature and infrastructure modules.
+  - Root module importing all other modules
+  - Configures MySQL and MongoDB connections
+  - Sets up environment configuration and enables scheduling
+  - Initializes the NestJS ScheduleModule for cron jobs
 
 - **ConfigModule**
-  - Centralized configuration (e.g., database connections, environment variables).
-  - Ensures secrets and environment-specific settings are injected consistently.
-
-- **ScheduleModule**
-  - Provides scheduling and background job support (e.g., CRON jobs, BullMQ queues).
-  - Used by the Notifications and Matches modules for periodic tasks.
+  - Centralized configuration management
+  - Environment-specific settings injection
+  - JWT secret configuration
 
 - **AuthModule**
-  - Handles authentication (JWT strategy, guards, login, signup).
-  - Enforces role-based access (`client`, `admin`).
-  - Depends on the `UsersModule` for account validation.
+  - JWT-based authentication with Passport
+  - Role-based access control (client/admin)
+  - Login and registration endpoints
 
 - **UsersModule**
-  - Manages user accounts (email, password, role).
-  - Provides services to Auth for login/signup.
-  - Maintains relations to `Clients` (a client user belongs to one client).
+  - User account management
+  - Password hashing and validation
+  - Client relationship management
 
 - **ClientsModule**
-  - Represents organizations/companies that own projects.
-  - Each client can have multiple users and multiple projects.
-  - Business-level entity, separate from authentication.
+  - Business client/organization management
+  - Project ownership handling
+  - User relationship management
 
 - **ServicesModule**
-  - Manages the standardized list of services offered in the system
-  - Provides CRUD operations for service entities
-  - Used by both `ProjectsModule` (for required services) and `VendorsModule` (for offered services)
-  - Ensures data integrity and consistency across service references
+  - Standardized service catalog management
+  - CRUD operations for service entities
+  - Cross-module service reference integrity
 
-### 🔹 Feature Modules
+#### 🔹 Feature Modules
 
 - **ProjectsModule**
-  - Manages client projects.
-  - Stores project metadata (budget, country, status).
-  - Connects to `Clients` (each project belongs to one client).
-  - Defines required services via the `project_services` join table.
+  - Client project management
+  - Budget, country, and status tracking
+  - Service requirement definition via project_services
 
 - **VendorsModule**
-  - Manages vendors (service providers).
-  - Stores vendor data (countries supported, services offered, SLA, rating).
-  - Defines offered services via the `vendor_services` join table.
+  - Vendor/service provider management
+  - Country support and service offering configuration
+  - Rating and SLA tracking
+  - **Integrated Scheduling**: Contains `VendorsScheduler` that runs daily at 8:00 AM to flag vendors with expired SLAs
+  - Automated vendor performance monitoring
 
 - **MatchesModule**
-  - Core of the matching logic.
-  - Creates matches between projects and vendors.
-  - Calculates a score based on services overlap, country compatibility, vendor rating, and SLA.
-  - Works closely with `Projects` and `Vendors`.
+  - Core matching algorithm implementation
+  - Automated scoring based on service overlap, country compatibility, rating, and SLA
+  - **Integrated Scheduling**: Contains `MatchesScheduler` that runs daily at 9:00 AM for automated match refresh
+  - Integration with notification system
 
 - **ResearchModule (MongoDB)**
-  - Handles unstructured project documents (market insights, contracts, reports).
-  - Stored in MongoDB for flexibility (tags, text search, variable structures).
-  - Each document is linked to a project (`projectId`).
+  - Unstructured document storage
+  - Flexible schema with tagging support
+  - Project-linked document management
+  - Full-text search capabilities
 
 - **AnalyticsModule**
-  - Provides aggregated statistics and cross-database queries.
-  - Combines MySQL data (projects, vendors, matches) with MongoDB documents.
-  - Exposes APIs for dashboards (top vendors, match trends, document counts).
+  - Cross-database query capabilities
+  - Statistical analysis and reporting
+  - Dashboard data aggregation
+  - Combines MySQL and MongoDB data for comprehensive insights
 
 - **NotificationsModule**
-  - Sends notifications (e.g., emails, logs, or queued events).
-  - Triggered when new matches are generated or scheduled tasks run.
-  - Relies on `ScheduleModule` for daily jobs (e.g., refreshing matches, vendor status checks).
+  - Mock email service (console output)
+  - Match notification system
+  - Client communication management
+  - Automated alerts for high-quality vendor matches
+
+### 🔄 Scheduling Implementation
+
+The scheduling functionality is decentralized and integrated directly within the relevant feature modules:
+
+**VendorsModule Scheduler** (`vendors/vendors.scheduler.ts`):
+
+- Runs daily at 8:00 AM to monitor vendor performance
+- Flags vendors with expired SLAs as inactive before match generation
+- Cron expression: `0 8 * * *` (daily at 8 AM)
+- Provides warning logs for administrative review
+
+**MatchesModule Scheduler** (`matches/matches.scheduler.ts`):
+
+- Runs daily at 9:00 AM for automated match generation
+- Refreshes vendor matches for all active projects after vendor validation
+- Cron expression: `0 9 * * *` (daily at 9 AM)
+
+This optimized scheduling sequence ensures that vendors are validated and flagged at 8:00 AM before the match generation process begins at 9:00 AM, maintaining data integrity and ensuring only active, compliant vendors are included in the matching process.
 
 ---
 
